@@ -3,7 +3,7 @@
 
 import 'react-native-gesture-handler';
 import 'react-native-screens';
-import React, { useState, useEffect, useContext, createContext } from 'react';
+import React, { useState, useEffect, useContext, createContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Pressable,
+  StatusBar,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import GunReformChatScreen from './GunReformChatScreen.js';
 
 // ---------- Supabase client (single-file / Snack style) ----------
 const supabaseUrl = 'https://npkuhbtuhsgxvkkyzwsb.supabase.co';
@@ -56,6 +59,13 @@ async function loadIssuesFromCache() {
 
 // ---------- Fallback sample data if server is empty ----------
 const sampleIssues = [
+  {
+    id: 'gun_reform_questionnaire',
+    title: 'Gun Reform Dialogue',
+    description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
+    supporters: 0,
+    comments: [],
+  },
   {
     id: 1,
     title: 'Living Wage and Worker Protections',
@@ -285,7 +295,13 @@ function HomeScreen({ navigation, issues }) {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.issueCard}
-                onPress={() => navigation.navigate('IssueDetail', { issueId: item.id })}
+                onPress={() => {
+                  if (item.id === 'gun_reform_questionnaire') {
+                    navigation.navigate('GunReformChat');
+                  } else {
+                    navigation.navigate('IssueDetail', { issueId: item.id });
+                  }
+                }}
               >
                 <Text style={styles.issueTitle}>{item.title}</Text>
                 {/* iOS-friendly truncation for accessibility */}
@@ -590,6 +606,8 @@ function NewIssueScreen({ navigation, issues, setIssues, fetchIssues }) {
   );
 }
 
+
+
 // ---------- Profile ----------
 function ProfileScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -890,6 +908,7 @@ export default function App() {
             <Stack.Screen name="Account" options={{ title: 'Account' }} component={AccountScreen} />
             <Stack.Screen name="Profile" options={{ title: 'Edit Profile' }} component={ProfileScreen} />
             <Stack.Screen name="Chat" options={{ title: 'AI Chat' }} component={ChatScreen} />
+            <Stack.Screen name="GunReformChat" options={{ title: 'Gun Reform Dialogue' }} component={GunReformChatScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AuthProvider>
