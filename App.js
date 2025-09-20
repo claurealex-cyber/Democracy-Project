@@ -2,6 +2,7 @@
 // Cross-partisan civic discussion app with Supabase persistence.
 
 import 'react-native-gesture-handler';
+import 'react-native-screens';
 import React, { useState, useEffect, useContext, createContext } from 'react';
 import {
   View,
