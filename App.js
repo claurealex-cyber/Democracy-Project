@@ -446,6 +446,7 @@ function IssueDetailScreen({ route, navigation, issues, setIssues, fetchIssues }
       <KeyboardAvoidingView
         style={styles.detailContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={64}
       >
         <ScrollView>
           <Text style={styles.detailTitle}>{issue.title}</Text>
@@ -560,25 +561,31 @@ function NewIssueScreen({ navigation, issues, setIssues, fetchIssues }) {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.newIssueContainer}>
-        <Text style={styles.sectionTitle}>Propose a New Issue</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Issue title"
-          value={title}
-          onChangeText={setTitle}
-        />
-        <TextInput
-          style={[styles.input, styles.multilineInput]}
-          placeholder="Describe the issue and why it matters"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-        />
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit Issue</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }} // Use a simple flex style
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={64}
+      >
+        <ScrollView contentContainerStyle={styles.newIssueContainer}>
+          <Text style={styles.sectionTitle}>Propose a New Issue</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Issue title"
+            value={title}
+            onChangeText={setTitle}
+          />
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            placeholder="Describe the issue and why it matters"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+          />
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <Text style={styles.submitButtonText}>Submit Issue</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -729,6 +736,7 @@ function ChatScreen({ route }) {
       <KeyboardAvoidingView
         style={styles.chatContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={64}
       >
         <ScrollView style={styles.chatMessages} contentContainerStyle={{ paddingVertical: 8 }}>
           {messages.map((msg, idx) => {
