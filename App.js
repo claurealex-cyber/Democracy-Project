@@ -17,19 +17,11 @@ import {
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import QuestionnaireScreen from './QuestionnaireScreen.js';
-
+import { supabase } from './supabase.js';
 import NODES from './data/gunReformNodes.js';
-
-// ---------- Supabase client (single-file / Snack style) ----------
-const supabaseUrl = 'https://npkuhbtuhsgxvkkyzwsb.supabase.co';
-const supabaseAnonKey =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wa3VoYnR1aHNneHZra3l6d3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMzUxODUsImV4cCI6MjA3MzkxMTE4NX0.GcAu_WAx23ECALUzEQ_atHcnCNGNL2e6JgsCw3cWFvg';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ---------- Local cache (offline / restart friendly) ----------
 const ISSUES_CACHE_KEY = 'cgf.issues.v1';
@@ -280,9 +272,19 @@ function HomeScreen({ navigation, issues }) {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.issueCard}
-                onPress={() => {
+                onPress={async () => {
                   if (item.id === 'gun_reform_questionnaire') {
-                    navigation.navigate('GunReformChat', { nodes: NODES });
+                    const { data, error } = await supabase
+                      .from('questionnaires')
+                      .select('id')
+                      .eq('title', 'Gun Reform Dialogue')
+                      .single();
+
+                    if (error) {
+                      Alert.alert('Error', 'Could not load the questionnaire.');
+                    } else if (data) {
+                      navigation.navigate('GunReformChat', { questionnaireId: data.id });
+                    }
                   } else {
                     navigation.navigate('IssueDetail', { issueId: item.id });
                   }
@@ -799,6 +801,34 @@ export default function App() {
     comments: [],
   };
 
+  const seedInitialData = async () => {
+    const { data, error } = await supabase
+      .from('questionnaires')
+      .select('id')
+      .eq('title', 'Gun Reform Dialogue')
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+      console.error('Error checking for questionnaire:', error);
+      return;
+    }
+
+    if (!data) {
+      console.log('Seeding gun reform questionnaire...');
+      const { error: insertError } = await supabase
+        .from('questionnaires')
+        .insert({
+          title: 'Gun Reform Dialogue',
+          description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
+          nodes: NODES,
+        });
+
+      if (insertError) {
+        console.error('Error seeding questionnaire:', insertError);
+      }
+    }
+  };
+
   const updateAndCacheIssues = async (newIssues) => {
     const existingIds = new Set(newIssues.map(i => i.id));
     let finalList = newIssues;
@@ -862,6 +892,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    seedInitialData();
     (async () => {
       const cached = await loadIssuesFromCache();
       if (cached?.length) {
