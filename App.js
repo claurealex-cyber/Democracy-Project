@@ -17,16 +17,13 @@ import {
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-
-// ---------- Supabase client (single-file / Snack style) ----------
-const supabaseUrl = 'https://npkuhbtuhsgxvkkyzwsb.supabase.co';
-const supabaseAnonKey =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wa3VoYnR1aHNneHZra3l6d3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMzUxODUsImV4cCI6MjA3MzkxMTE4NX0.GcAu_WAx23ECALUzEQ_atHcnCNGNL2e6JgsCw3cWFvg';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import QuestionnaireScreen from './QuestionnaireScreen.js';
+import QuestionBuilderScreen from './QuestionBuilderScreen.js';
+import AddQuestionScreen from './AddQuestionScreen.js';
+import { supabase } from './supabase.js';
+import NODES from './data/gunReformNodes.js';
 
 // ---------- Local cache (offline / restart friendly) ----------
 const ISSUES_CACHE_KEY = 'cgf.issues.v1';
@@ -277,7 +274,23 @@ function HomeScreen({ navigation, issues }) {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.issueCard}
-                onPress={() => navigation.navigate('IssueDetail', { issueId: item.id })}
+                onPress={async () => {
+                  if (item.id === 'gun_reform_questionnaire') {
+                    const { data, error } = await supabase
+                      .from('questionnaires')
+                      .select('id')
+                      .eq('title', 'Gun Reform Dialogue')
+                      .single();
+
+                    if (error) {
+                      Alert.alert('Error', 'Could not load the questionnaire.');
+                    } else if (data) {
+                      navigation.navigate('GunReformChat', { questionnaireId: data.id });
+                    }
+                  } else {
+                    navigation.navigate('IssueDetail', { issueId: item.id });
+                  }
+                }}
               >
                 <Text style={styles.issueTitle}>{item.title}</Text>
                 {/* iOS-friendly truncation for accessibility */}
@@ -293,12 +306,20 @@ function HomeScreen({ navigation, issues }) {
             scrollEnabled={false}
           />
         )}
-        <TouchableOpacity
-          style={styles.addIssueButton}
-          onPress={() => navigation.navigate('NewIssue')}
-        >
-          <Text style={styles.addIssueText}>Propose New Issue</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 8 }}>
+          <TouchableOpacity
+            style={styles.addIssueButton}
+            onPress={() => navigation.navigate('NewIssue')}
+          >
+            <Text style={styles.addIssueText}>Propose Issue</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addIssueButton}
+            onPress={() => navigation.navigate('CreateQuestionnaire')}
+          >
+            <Text style={styles.addIssueText}>Create Questionnaire</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -575,6 +596,76 @@ function NewIssueScreen({ navigation, issues, setIssues, fetchIssues }) {
   );
 }
 
+function CreateQuestionnaireScreen({ navigation }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+
+  const { user } = useContext(AuthContext);
+
+  const handleSave = async () => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      Alert.alert('Title is required');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert('You must be logged in to create a questionnaire.');
+      return;
+    }
+
+    const defaultNodes = {
+      start: {
+        id: "start",
+        type: "single",
+        text: "This is the first question. Edit it to begin.",
+        options: [],
+      },
+    };
+
+    const { data, error } = await supabase
+      .from('questionnaires')
+      .insert({
+        title: trimmedTitle,
+        description: description.trim(),
+        user_id: user.id,
+        nodes: defaultNodes,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      Alert.alert('Error creating questionnaire', error.message);
+    } else if (data) {
+      navigation.navigate('QuestionBuilder', { questionnaireId: data.id });
+    }
+  };
+
+  return (
+    <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.newIssueContainer}>
+        <Text style={styles.sectionTitle}>Create a New Questionnaire</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Questionnaire Title"
+          value={title}
+          onChangeText={setTitle}
+        />
+        <TextInput
+          style={[styles.input, styles.multilineInput]}
+          placeholder="Describe your questionnaire"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+        />
+        <TouchableOpacity style={styles.submitButton} onPress={handleSave}>
+          <Text style={styles.submitButtonText}>Save and Add Questions</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
 // ---------- Profile ----------
 function ProfileScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -782,6 +873,53 @@ const Stack = createStackNavigator();
 export default function App() {
   const [issues, setIssues] = useState([]);
 
+  const GUN_REFORM_ISSUE = {
+    id: 'gun_reform_questionnaire',
+    title: 'Gun Reform Dialogue',
+    description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
+    supporters: 0,
+    comments: [],
+  };
+
+  const seedInitialData = async () => {
+    const { data, error } = await supabase
+      .from('questionnaires')
+      .select('id')
+      .eq('title', 'Gun Reform Dialogue')
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+      console.error('Error checking for questionnaire:', error);
+      return;
+    }
+
+    if (!data) {
+      console.log('Seeding gun reform questionnaire...');
+      const { error: insertError } = await supabase
+        .from('questionnaires')
+        .insert({
+          title: 'Gun Reform Dialogue',
+          description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
+          nodes: NODES,
+        });
+
+      if (insertError) {
+        console.error('Error seeding questionnaire:', insertError);
+      }
+    }
+  };
+
+  const updateAndCacheIssues = async (newIssues) => {
+    const existingIds = new Set(newIssues.map(i => i.id));
+    let finalList = newIssues;
+    if (!existingIds.has(GUN_REFORM_ISSUE.id)) {
+      finalList = [GUN_REFORM_ISSUE, ...newIssues];
+    }
+
+    setIssues(finalList);
+    await saveIssuesToCache(finalList);
+  };
+
   const fetchIssues = async () => {
     try {
       const { data, error } = await supabase
@@ -817,27 +955,29 @@ export default function App() {
       }));
 
       if (hydrated.length) {
-        setIssues(hydrated);
-        await saveIssuesToCache(hydrated);
+        await updateAndCacheIssues(hydrated);
       } else {
         // server has no data: only show samples if we currently have nothing
-        if (issues.length === 0) setIssues(sampleIssues);
+        if (issues.length === 0) await updateAndCacheIssues(sampleIssues);
       }
     } catch (err) {
       console.error('fetchIssues failed:', err);
       const cached = await loadIssuesFromCache();
       if (cached?.length) {
-        setIssues(cached);
+        await updateAndCacheIssues(cached);
       } else if (issues.length === 0) {
-        setIssues(sampleIssues);
+        await updateAndCacheIssues(sampleIssues);
       }
     }
   };
 
   useEffect(() => {
+    seedInitialData();
     (async () => {
       const cached = await loadIssuesFromCache();
-      if (cached?.length) setIssues(cached); // quick boot
+      if (cached?.length) {
+        await updateAndCacheIssues(cached); // quick boot
+      }
       await fetchIssues(); // then refresh from server
     })();
   }, []);
@@ -860,20 +1000,14 @@ export default function App() {
                 />
               )}
             </Stack.Screen>
-            <Stack.Screen name="NewIssue" options={{ title: 'New Issue' }}>
-              {(props) => (
-                <NewIssueScreen
-                  {...props}
-                  issues={issues}
-                  setIssues={setIssues}
-                  fetchIssues={fetchIssues}
-                />
-              )}
-            </Stack.Screen>
+            <Stack.Screen name="CreateQuestionnaire" options={{ title: 'Create Questionnaire' }} component={CreateQuestionnaireScreen} />
+            <Stack.Screen name="QuestionBuilder" options={{ title: 'Question Builder' }} component={QuestionBuilderScreen} />
+            <Stack.Screen name="AddQuestion" options={{ title: 'Add Question' }} component={AddQuestionScreen} />
             <Stack.Screen name="Auth" options={{ title: 'Authentication' }} component={AuthScreen} />
             <Stack.Screen name="Account" options={{ title: 'Account' }} component={AccountScreen} />
             <Stack.Screen name="Profile" options={{ title: 'Edit Profile' }} component={ProfileScreen} />
             <Stack.Screen name="Chat" options={{ title: 'AI Chat' }} component={ChatScreen} />
+            <Stack.Screen name="GunReformChat" options={{ title: 'Gun Reform Dialogue' }} component={QuestionnaireScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AuthProvider>
