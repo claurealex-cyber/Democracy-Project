@@ -1,8 +1,12 @@
-// Democracy App for Expo (React Native)
-// Cross-partisan civic discussion app with Supabase persistence.
-
+// ---------- Imports ----------
 import 'react-native-gesture-handler';
-import React, { useState, useEffect, useContext, createContext } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  createContext,
+  useCallback,
+} from 'react';
 import {
   View,
   Text,
@@ -19,73 +23,64 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import QuestionnaireScreen from './QuestionnaireScreen.js';
-import QuestionBuilderScreen from './QuestionBuilderScreen.js';
-import AddEditQuestionScreen from './AddEditQuestionScreen.js';
-import { supabase } from './supabase.js';
-import NODES from './data/gunReformNodes.js';
 
-// ---------- Local cache (offline / restart friendly) ----------
+// ---------- Custom Screens ----------
+import QuestionnaireScreen from './components/QuestionnaireScreen.js';
+import QuestionBuilderScreen from './components/QuestionBuilderScreen.js';
+import AddEditQuestionScreen from './components/AddEditQuestionScreen.js';
+
+// ---------- Supabase Setup ----------
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = 'https://npkuhbtuhsgxvkkyzwsb.Supabase.co';
+const supabaseAnonKey =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wa3VoYnR1aHNneHZra3l6d3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMzUxODUsImV4cCI6MjA3MzkxMTE4NX0.GcAu_WAx23ECALUzEQ_atHcnCNGNL2e6JgsCw3cWFvg';
+
+export const Supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+
+// ---------- Local cache ----------
 const ISSUES_CACHE_KEY = 'cgf.issues.v1';
 
 async function saveIssuesToCache(list) {
   try {
     await AsyncStorage.setItem(ISSUES_CACHE_KEY, JSON.stringify(list));
-  } catch {}
+  } catch (e) {
+    console.warn('Failed to save cache:', e);
+  }
 }
 
 async function loadIssuesFromCache() {
   try {
     const raw = await AsyncStorage.getItem(ISSUES_CACHE_KEY);
     return raw ? JSON.parse(raw) : [];
-  } catch {
+  } catch (e) {
+    console.warn('Failed to load cache:', e);
     return [];
   }
 }
 
-// ---------- Fallback sample data if server is empty ----------
+// ---------- Fallback sample data ----------
 const sampleIssues = [
   {
     id: 1,
     title: 'Living Wage and Worker Protections',
-    description:
-      'Many Americans struggle to make ends meet despite working full-time. This issue explores policies for raising the minimum wage, supporting small businesses, and ensuring workers are treated fairly.',
+    description: 'Many Americans struggle...',
     supporters: 23,
-    comments: [
-      {
-        id: 1,
-        author: 'Alex',
-        content:
-          'I think both major parties agree that people who work full time shouldn’t live in poverty. Ensuring a living wage is something everyone should support.',
-        votes: 5,
-        bridging: true,
-      },
-      {
-        id: 2,
-        author: 'Jordan',
-        content:
-          'Raising wages is important, but we also need to help small businesses afford the change—tax credits could bridge the gap.',
-        votes: 3,
-        bridging: true,
-      },
-    ],
+    comments: [],
   },
   {
     id: 2,
     title: 'Healthcare Affordability',
-    description:
-      'Health care costs continue to rise. Share ideas to reduce out-of-pocket expenses, improve access, and encourage prevention without sacrificing quality.',
+    description: 'Health care costs continue...',
     supporters: 15,
-    comments: [
-      {
-        id: 1,
-        author: 'Morgan',
-        content:
-          'No one should go bankrupt because of medical bills. Regardless of party, we should work together to lower prices and prioritize prevention.',
-        votes: 6,
-        bridging: true,
-      },
-    ],
+    comments: [],
   },
 ];
 
@@ -96,10 +91,10 @@ function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    Supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = Supabase.auth.onAuthStateChange(
       (_event, session) => setUser(session?.user ?? null)
     );
     return () => authListener?.subscription?.unsubscribe();
@@ -124,7 +119,7 @@ function AuthScreen({ navigation }) {
     setErrorMsg('');
     try {
       if (mode === 'login') {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await Supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -132,7 +127,7 @@ function AuthScreen({ navigation }) {
         setUser(data.user);
         navigation.navigate('Home');
       } else {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError } = await Supabase.auth.signUp({
           email,
           password,
         });
@@ -140,7 +135,7 @@ function AuthScreen({ navigation }) {
 
         // immediate login after sign up
         const { data: loginData, error: loginError } =
-          await supabase.auth.signInWithPassword({ email, password });
+          await Supabase.auth.signInWithPassword({ email, password });
         if (loginError) throw loginError;
         setUser(loginData.user);
         navigation.navigate('Home');
@@ -192,7 +187,7 @@ function AccountScreen({ navigation }) {
   const { user, setUser } = useContext(AuthContext);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await Supabase.auth.signOut();
     setUser(null);
     navigation.navigate('Home');
   };
@@ -276,7 +271,7 @@ function HomeScreen({ navigation, issues }) {
                 style={styles.issueCard}
                 onPress={async () => {
                   if (item.id === 'gun_reform_questionnaire') {
-                    const { data, error } = await supabase
+                    const { data, error } = await Supabase
                       .from('questionnaires')
                       .select('id')
                       .eq('title', 'Gun Reform Dialogue')
@@ -335,7 +330,7 @@ function IssueDetailScreen({ route, navigation, issues, setIssues, fetchIssues }
   const { user } = useContext(AuthContext);
 
   const handleSupport = async () => {
-    const { error } = await supabase
+    const { error } = await Supabase
       .from('issues')
       .update({ supporters: issue.supporters + 1 })
       .eq('id', issue.id);
@@ -359,7 +354,7 @@ function IssueDetailScreen({ route, navigation, issues, setIssues, fetchIssues }
 
     let serverIssueId = issue.id;
     let exists = true;
-    const { data: probe, error: probeErr } = await supabase
+    const { data: probe, error: probeErr } = await Supabase
       .from('issues')
       .select('id')
       .eq('id', serverIssueId)
@@ -368,7 +363,7 @@ function IssueDetailScreen({ route, navigation, issues, setIssues, fetchIssues }
     if (probeErr || !probe) exists = false;
 
     if (!exists) {
-      const { data: created, error: createErr } = await supabase
+      const { data: created, error: createErr } = await Supabase
         .from('issues')
         .insert({
           title: issue.title,
@@ -390,7 +385,7 @@ function IssueDetailScreen({ route, navigation, issues, setIssues, fetchIssues }
       await saveIssuesToCache(updatedLocal);
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await Supabase
       .from('comments')
       .insert({
         issue_id: serverIssueId,
@@ -428,7 +423,7 @@ function IssueDetailScreen({ route, navigation, issues, setIssues, fetchIssues }
     const target = issue.comments.find((c) => c.id === commentId);
     if (!target) return;
 
-    const { error } = await supabase
+    const { error } = await Supabase
       .from('comments')
       .update({ votes: target.votes + 1 })
       .eq('id', commentId);
@@ -551,7 +546,7 @@ function NewIssueScreen({ navigation, issues, setIssues, fetchIssues }) {
       return;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await Supabase
       .from('issues')
       .insert({ title: trimmedTitle, description: trimmedDescription, supporters: 0 })
       .select()
@@ -616,14 +611,14 @@ function CreateQuestionnaireScreen({ navigation }) {
 
     const defaultNodes = {
       start: {
-        id: "start",
-        type: "single",
-        text: "This is the first question. Edit it to begin.",
+        id: 'start',
+        type: 'single',
+        text: 'This is the first question. Edit it to begin.',
         options: [],
       },
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await Supabase
       .from('questionnaires')
       .insert({
         title: trimmedTitle,
@@ -647,13 +642,13 @@ function CreateQuestionnaireScreen({ navigation }) {
         <Text style={styles.sectionTitle}>Create a New Questionnaire</Text>
         <TextInput
           style={styles.input}
-          placeholder="Questionnaire Title"
+          placeholder='Questionnaire Title'
           value={title}
           onChangeText={setTitle}
         />
         <TextInput
           style={[styles.input, styles.multilineInput]}
-          placeholder="Describe your questionnaire"
+          placeholder='Describe your questionnaire'
           value={description}
           onChangeText={setDescription}
           multiline
@@ -676,7 +671,7 @@ function ProfileScreen({ navigation }) {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
-      const { data, error } = await supabase
+      const { data, error } = await Supabase
         .from('profiles')
         .select('first_name, last_name')
         .eq('id', user.id)
@@ -692,7 +687,7 @@ function ProfileScreen({ navigation }) {
 
   const handleSave = async () => {
     if (!user) return;
-    const { error } = await supabase.from('profiles').upsert({
+    const { error } = await Supabase.from('profiles').upsert({
       id: user.id,
       first_name: firstName,
       last_name: lastName,
@@ -720,13 +715,13 @@ function ProfileScreen({ navigation }) {
         <Text style={styles.authTitle}>Edit Your Profile</Text>
         <TextInput
           style={styles.input}
-          placeholder="First name"
+          placeholder='First name'
           value={firstName}
           onChangeText={setFirstName}
         />
         <TextInput
           style={styles.input}
-          placeholder="Last name"
+          placeholder='Last name'
           value={lastName}
           onChangeText={setLastName}
         />
@@ -752,7 +747,7 @@ function ChatScreen({ route }) {
         'There should be universal healthcare',
       ],
     },
-    'Living Wage and Worker Protections': {
+  'Living Wage and Worker Protections': {
       question: 'What is your general stance on workers’ rights and wages?',
       options: [
         'We should raise wages and strengthen protections',
@@ -797,7 +792,7 @@ function ChatScreen({ route }) {
     const userMsg = { sender: 'user', content: optionText };
     setMessages((prev) => [...prev, userMsg]);
     // Save answer (best-effort)
-    await supabase.from('answers').insert({
+    await Supabase.from('answers').insert({
       user_id: user?.id || null,
       topic,
       choice: optionText,
@@ -853,7 +848,7 @@ function ChatScreen({ route }) {
           <View style={styles.chatInputContainer}>
             <TextInput
               style={styles.chatInput}
-              placeholder="Type your message"
+              placeholder='Type your message'
               value={input}
               onChangeText={setInput}
             />
@@ -866,63 +861,37 @@ function ChatScreen({ route }) {
     </SafeAreaView>
   );
 }
-
 // ---------- App Setup ----------
 const Stack = createStackNavigator();
+
+// ✅ Hoist this OUTSIDE the component so it's stable
+const GUN_REFORM_ISSUE = {
+  id: 'gun_reform_questionnaire',
+  title: 'Gun Reform Dialogue',
+  description:
+    'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
+  supporters: 0,
+  comments: [],
+};
 
 export default function App() {
   const [issues, setIssues] = useState([]);
 
-  const GUN_REFORM_ISSUE = {
-    id: 'gun_reform_questionnaire',
-    title: 'Gun Reform Dialogue',
-    description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
-    supporters: 0,
-    comments: [],
-  };
-
-  const seedInitialData = async () => {
-    const { data, error } = await supabase
-      .from('questionnaires')
-      .select('id')
-      .eq('title', 'Gun Reform Dialogue')
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
-      console.error('Error checking for questionnaire:', error);
-      return;
-    }
-
-    if (!data) {
-      console.log('Seeding gun reform questionnaire...');
-      const { error: insertError } = await supabase
-        .from('questionnaires')
-        .insert({
-          title: 'Gun Reform Dialogue',
-          description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
-          nodes: NODES,
-        });
-
-      if (insertError) {
-        console.error('Error seeding questionnaire:', insertError);
-      }
-    }
-  };
-
-  const updateAndCacheIssues = async (newIssues) => {
+  // Now this callback has no missing deps
+  const updateAndCacheIssues = useCallback(async (newIssues) => {
     const existingIds = new Set(newIssues.map(i => i.id));
     let finalList = newIssues;
     if (!existingIds.has(GUN_REFORM_ISSUE.id)) {
       finalList = [GUN_REFORM_ISSUE, ...newIssues];
     }
-
     setIssues(finalList);
     await saveIssuesToCache(finalList);
-  };
+  }, [])
 
-  const fetchIssues = async () => {
+
+  const fetchIssues = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await Supabase
         .from('issues')
         .select('id, title, description, supporters')
         .order('id');
@@ -931,10 +900,9 @@ export default function App() {
 
       let commentsMap = {};
       if (data?.length) {
-        const { data: commentsData, error: commentsError } = await supabase
+        const { data: commentsData, error: commentsError } = await Supabase
           .from('comments')
           .select('id, author, author_id, content, votes, bridging, issue_id');
-
         if (!commentsError && commentsData) {
           commentsMap = commentsData.reduce((acc, c) => {
             (acc[c.issue_id] ||= []).push({
@@ -957,20 +925,55 @@ export default function App() {
       if (hydrated.length) {
         await updateAndCacheIssues(hydrated);
       } else {
-        // server has no data: only show samples if we currently have nothing
-        if (issues.length === 0) await updateAndCacheIssues(sampleIssues);
+        // If server is empty, try cache; if cache empty too, fall back to samples
+        const cached = await loadIssuesFromCache();
+        if (cached?.length) {
+          await updateAndCacheIssues(cached);
+        } else {
+          await updateAndCacheIssues(sampleIssues);
+        }
       }
     } catch (err) {
       console.error('fetchIssues failed:', err);
       const cached = await loadIssuesFromCache();
       if (cached?.length) {
         await updateAndCacheIssues(cached);
-      } else if (issues.length === 0) {
+      } else {
         await updateAndCacheIssues(sampleIssues);
       }
     }
-  };
+  }, [updateAndCacheIssues]);
 
+  const seedInitialData = useCallback(async () => {
+    const { data, error } = await Supabase
+      .from('questionnaires')
+      .select('id')
+      .eq('title', 'Gun Reform Dialogue')
+      .single();
+
+    // PGRST116 = no rows found
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error checking for questionnaire:', error);
+      return;
+    }
+
+    if (!data) {
+      console.log('Seeding gun reform questionnaire...');
+      const { error: insertError } = await Supabase
+        .from('questionnaires')
+        .insert({
+          title: 'Gun Reform Dialogue',
+          description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
+          nodes: {}, // using empty nodes object to avoid undefined reference
+        });
+
+      if (insertError) {
+        console.error('Error seeding questionnaire:', insertError);
+      }
+    }
+  }, []);
+
+  // ✅ include the memoized functions in deps (ESLint satisfied)
   useEffect(() => {
     seedInitialData();
     (async () => {
@@ -980,7 +983,7 @@ export default function App() {
       }
       await fetchIssues(); // then refresh from server
     })();
-  }, []);
+  }, [fetchIssues, updateAndCacheIssues, seedInitialData]);
 
   return (
     <SafeAreaProvider>
@@ -1506,5 +1509,3 @@ const styles = StyleSheet.create({
   optionButtonText: {
     color: '#217ebb',
     fontWeight: '600',
-  },
-});
