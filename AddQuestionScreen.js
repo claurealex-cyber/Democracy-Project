@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Alert, Modal, FlatList } from 'react-native';
 import { supabase } from './supabase.js';
 
 function AddQuestionScreen({ route, navigation }) {
   const { questionnaireId } = route.params;
   const [questionId, setQuestionId] = useState('');
   const [questionText, setQuestionText] = useState('');
+  const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [optionLabel, setOptionLabel] = useState('');
+  const [optionValue, setOptionValue] = useState('');
+  const [optionNext, setOptionNext] = useState('');
 
   const handleSave = async () => {
     const qId = questionId.trim();
@@ -43,7 +48,7 @@ function AddQuestionScreen({ route, navigation }) {
       id: qId,
       type: 'single', // Default to single choice
       text: qText,
-      options: [],
+      options: options,
     };
 
     // 3. Update the record
@@ -61,8 +66,64 @@ function AddQuestionScreen({ route, navigation }) {
     setLoading(false);
   };
 
+  const handleAddOption = () => {
+    if (!optionLabel.trim() || !optionValue.trim() || !optionNext.trim()) {
+      Alert.alert('Error', 'All option fields are required.');
+      return;
+    }
+    const newOption = {
+      label: optionLabel.trim(),
+      value: optionValue.trim(),
+      next: optionNext.trim(),
+    };
+    setOptions([...options, newOption]);
+    setOptionLabel('');
+    setOptionValue('');
+    setOptionNext('');
+    setModalVisible(false);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Add New Option</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Option Label (e.g., Yes)"
+              value={optionLabel}
+              onChangeText={setOptionLabel}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Option Value (e.g., yes_option)"
+              value={optionValue}
+              onChangeText={setOptionValue}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Next Question ID (e.g., q3)"
+              value={optionNext}
+              onChangeText={setOptionNext}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity style={styles.button} onPress={handleAddOption}>
+              <Text style={styles.buttonText}>Add Option</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, {backgroundColor: '#6c757d'}]} onPress={() => setModalVisible(false)}>
+              <Text style={styles.buttonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Add New Question</Text>
 
@@ -83,6 +144,24 @@ function AddQuestionScreen({ route, navigation }) {
           onChangeText={setQuestionText}
           multiline
         />
+
+        <Text style={styles.label}>Options</Text>
+        <FlatList
+          data={options}
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={({ item }) => (
+            <View style={styles.optionItem}>
+              <Text>{item.label}</Text>
+            </View>
+          )}
+          ListEmptyComponent={<Text>No options added yet.</Text>}
+        />
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={styles.addButtonText}>+ Add Option</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, loading && styles.disabledButton]}
@@ -137,6 +216,52 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  optionItem: {
+    backgroundColor: '#e9ecef',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  addButton: {
+    backgroundColor: '#6c757d',
+    padding: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    width: '90%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
   },
 });
 

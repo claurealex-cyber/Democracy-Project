@@ -3,10 +3,6 @@ import { View, Text, StyleSheet, ActivityIndicator, FlatList, SafeAreaView, Touc
 import { supabase } from './supabase.js';
 
 function QuestionBuilderScreen({ route, navigation }) {
-import { View, Text, StyleSheet, ActivityIndicator, FlatList, SafeAreaView } from 'react-native';
-import { supabase } from './supabase.js';
-
-function QuestionBuilderScreen({ route }) {
   const { questionnaireId } = route.params;
   const [questionnaire, setQuestionnaire] = useState(null);
   const [loading, setLoading] = useState(true);
