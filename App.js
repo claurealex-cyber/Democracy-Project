@@ -304,12 +304,20 @@ function HomeScreen({ navigation, issues }) {
             scrollEnabled={false}
           />
         )}
-        <TouchableOpacity
-          style={styles.addIssueButton}
-          onPress={() => navigation.navigate('NewIssue')}
-        >
-          <Text style={styles.addIssueText}>Propose New Issue</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 8 }}>
+          <TouchableOpacity
+            style={styles.addIssueButton}
+            onPress={() => navigation.navigate('NewIssue')}
+          >
+            <Text style={styles.addIssueText}>Propose Issue</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addIssueButton}
+            onPress={() => navigation.navigate('CreateQuestionnaire')}
+          >
+            <Text style={styles.addIssueText}>Create Questionnaire</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -580,6 +588,77 @@ function NewIssueScreen({ navigation, issues, setIssues, fetchIssues }) {
         />
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
           <Text style={styles.submitButtonText}>Submit Issue</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function CreateQuestionnaireScreen({ navigation }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+
+  const { user } = useContext(AuthContext);
+
+  const handleSave = async () => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      Alert.alert('Title is required');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert('You must be logged in to create a questionnaire.');
+      return;
+    }
+
+    const defaultNodes = {
+      start: {
+        id: "start",
+        type: "single",
+        text: "This is the first question. Edit it to begin.",
+        options: [],
+      },
+    };
+
+    const { data, error } = await supabase
+      .from('questionnaires')
+      .insert({
+        title: trimmedTitle,
+        description: description.trim(),
+        user_id: user.id,
+        nodes: defaultNodes,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      Alert.alert('Error creating questionnaire', error.message);
+    } else {
+      Alert.alert('Success', 'Questionnaire created. You can now add questions.');
+      navigation.goBack();
+    }
+  };
+
+  return (
+    <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.newIssueContainer}>
+        <Text style={styles.sectionTitle}>Create a New Questionnaire</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Questionnaire Title"
+          value={title}
+          onChangeText={setTitle}
+        />
+        <TextInput
+          style={[styles.input, styles.multilineInput]}
+          placeholder="Describe your questionnaire"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+        />
+        <TouchableOpacity style={styles.submitButton} onPress={handleSave}>
+          <Text style={styles.submitButtonText}>Save and Add Questions</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -920,16 +999,7 @@ export default function App() {
                 />
               )}
             </Stack.Screen>
-            <Stack.Screen name="NewIssue" options={{ title: 'New Issue' }}>
-              {(props) => (
-                <NewIssueScreen
-                  {...props}
-                  issues={issues}
-                  setIssues={setIssues}
-                  fetchIssues={fetchIssues}
-                />
-              )}
-            </Stack.Screen>
+            <Stack.Screen name="CreateQuestionnaire" options={{ title: 'Create Questionnaire' }} component={CreateQuestionnaireScreen} />
             <Stack.Screen name="Auth" options={{ title: 'Authentication' }} component={AuthScreen} />
             <Stack.Screen name="Account" options={{ title: 'Account' }} component={AccountScreen} />
             <Stack.Screen name="Profile" options={{ title: 'Edit Profile' }} component={ProfileScreen} />
