@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Alert, Modal, FlatList } from 'react-native';
-import { supabase } from './supabase.js';
+import { supabase } from './Supabase.js';
 
 function AddEditQuestionScreen({ route, navigation }) {
   const { questionnaireId, questionId: questionIdToEdit } = route.params;
@@ -293,5 +293,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
-export default AddEditQuestionScreen;
