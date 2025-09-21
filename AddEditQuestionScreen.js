@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Alert, Modal, FlatList } from 'react-native';
 import { supabase } from './supabase.js';
 
-function AddQuestionScreen({ route, navigation }) {
-  const { questionnaireId } = route.params;
-  const [questionId, setQuestionId] = useState('');
+function AddEditQuestionScreen({ route, navigation }) {
+  const { questionnaireId, questionId: questionIdToEdit } = route.params;
+  const [isEditMode, setIsEditMode] = useState(!!questionIdToEdit);
+  const [questionId, setQuestionId] = useState(questionIdToEdit || '');
   const [questionText, setQuestionText] = useState('');
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -12,6 +13,29 @@ function AddQuestionScreen({ route, navigation }) {
   const [optionLabel, setOptionLabel] = useState('');
   const [optionValue, setOptionValue] = useState('');
   const [optionNext, setOptionNext] = useState('');
+
+  useEffect(() => {
+    if (isEditMode) {
+      const fetchQuestion = async () => {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('questionnaires')
+          .select('nodes')
+          .eq('id', questionnaireId)
+          .single();
+
+        if (error) {
+          Alert.alert('Error fetching question data', error.message);
+        } else if (data && data.nodes && data.nodes[questionIdToEdit]) {
+          const question = data.nodes[questionIdToEdit];
+          setQuestionText(question.text);
+          setOptions(question.options || []);
+        }
+        setLoading(false);
+      };
+      fetchQuestion();
+    }
+  }, [isEditMode, questionnaireId, questionIdToEdit]);
 
   const handleSave = async () => {
     const qId = questionId.trim();
@@ -37,16 +61,16 @@ function AddQuestionScreen({ route, navigation }) {
       return;
     }
 
-    // 2. Check for duplicate ID and add new node
+    // 2. Add or Update the node
     const newNodes = { ...questionnaire.nodes };
-    if (newNodes[qId]) {
+    if (!isEditMode && newNodes[qId]) {
       Alert.alert('Error', 'This Question ID already exists.');
       setLoading(false);
       return;
     }
     newNodes[qId] = {
       id: qId,
-      type: 'single', // Default to single choice
+      type: 'single', // For now, type is always single. This could be an input field later.
       text: qText,
       options: options,
     };
@@ -125,15 +149,16 @@ function AddQuestionScreen({ route, navigation }) {
       </Modal>
 
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Add New Question</Text>
+        <Text style={styles.title}>{isEditMode ? 'Edit Question' : 'Add New Question'}</Text>
 
         <Text style={styles.label}>Question ID</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, isEditMode && styles.disabledInput]}
           placeholder="e.g., q2, background_check_q"
           value={questionId}
           onChangeText={setQuestionId}
           autoCapitalize="none"
+          editable={!isEditMode}
         />
 
         <Text style={styles.label}>Question Text</Text>
@@ -203,6 +228,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
   },
+  disabledInput: {
+    backgroundColor: '#e9ecef',
+    color: '#6c757d',
+  },
   button: {
     backgroundColor: '#2a4d69',
     padding: 12,
@@ -265,4 +294,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddQuestionScreen;
+export default AddEditQuestionScreen;
