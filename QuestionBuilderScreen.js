@@ -1,39 +1,80 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, FlatList, SafeAreaView, TouchableOpacity } from 'react-native';
-import { supabase } from './supabase.js';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  FlatList,
+  SafeAreaView,
+  TouchableOpacity,
+} from 'react-native';
+// If this file is inside /components, change to: '../Supabase'
+import { Supabase } from './Supabase.js';
 
 function QuestionBuilderScreen({ route, navigation }) {
-  const { questionnaireId } = route.params;
+  const questionnaireId = route?.params?.questionnaireId;
   const [questionnaire, setQuestionnaire] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [errMsg, setErrMsg] = useState('');
 
   useEffect(() => {
+    let active = true;
+
     const fetchQuestionnaire = async () => {
+      if (!questionnaireId) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
-      const { data, error } = await supabase
+      setErrMsg('');
+      const { data, error } = await Supabase
         .from('questionnaires')
         .select('title, nodes')
         .eq('id', questionnaireId)
         .single();
 
+      if (!active) return;
+
       if (error) {
         console.error('Error fetching questionnaire:', error);
+        setErrMsg('Unable to load questionnaire.');
+        setQuestionnaire(null);
       } else {
         setQuestionnaire(data);
       }
       setLoading(false);
     };
 
-    if (questionnaireId) {
-      fetchQuestionnaire();
-    }
+    fetchQuestionnaire();
+    return () => {
+      active = false;
+    };
   }, [questionnaireId]);
+
+  const questionIds = useMemo(() => {
+    const nodes = questionnaire?.nodes;
+    // Ensure we only list keys when nodes is a plain object.
+    if (nodes && typeof nodes === 'object' && !Array.isArray(nodes)) {
+      return Object.keys(nodes).sort();
+    }
+    return [];
+  }, [questionnaire]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (errMsg) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.title}>{errMsg}</Text>
         </View>
       </SafeAreaView>
     );
@@ -49,25 +90,31 @@ function QuestionBuilderScreen({ route, navigation }) {
     );
   }
 
-  const questionIds = Object.keys(questionnaire.nodes || {});
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.title}>{questionnaire.title}</Text>
         <Text style={styles.subtitle}>Questions:</Text>
+
         <FlatList
           data={questionIds}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => (
+          keyExtractor={(id) => id}
+          renderItem={({ item: questionId }) => (
             <TouchableOpacity
               style={styles.questionItem}
-              onPress={() => navigation.navigate('AddQuestion', { questionnaireId, questionId: item })}
+              onPress={() =>
+                navigation.navigate('AddQuestion', {
+                  questionnaireId,
+                  questionId,
+                })
+              }
             >
-              <Text>{item}</Text>
+              <Text>{questionId}</Text>
             </TouchableOpacity>
           )}
+          ListEmptyComponent={<Text>No questions yet.</Text>}
         />
+
         <TouchableOpacity
           style={styles.button}
           onPress={() => navigation.navigate('AddQuestion', { questionnaireId })}
@@ -118,5 +165,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
-export default QuestionBuilderScreen;
