@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import QuestionnaireScreen from './QuestionnaireScreen.js';
 import QuestionBuilderScreen from './QuestionBuilderScreen.js';
-import AddQuestionScreen from './AddQuestionScreen.js';
+import AddEditQuestionScreen from './AddEditQuestionScreen.js';
 import { supabase } from './supabase.js';
 import NODES from './data/gunReformNodes.js';
 
@@ -311,7 +311,7 @@ function HomeScreen({ navigation, issues }) {
             style={styles.addIssueButton}
             onPress={() => navigation.navigate('NewIssue')}
           >
-            <Text style={styles.addIssueText}>Propose Issue</Text>
+            <Text style={styles.addIssueText}>Propose New Issue</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.addIssueButton}
@@ -1002,7 +1002,7 @@ export default function App() {
             </Stack.Screen>
             <Stack.Screen name="CreateQuestionnaire" options={{ title: 'Create Questionnaire' }} component={CreateQuestionnaireScreen} />
             <Stack.Screen name="QuestionBuilder" options={{ title: 'Question Builder' }} component={QuestionBuilderScreen} />
-            <Stack.Screen name="AddQuestion" options={{ title: 'Add Question' }} component={AddQuestionScreen} />
+            <Stack.Screen name="AddQuestion" options={{ title: 'Add/Edit Question' }} component={AddEditQuestionScreen} />
             <Stack.Screen name="Auth" options={{ title: 'Authentication' }} component={AuthScreen} />
             <Stack.Screen name="Account" options={{ title: 'Account' }} component={AccountScreen} />
             <Stack.Screen name="Profile" options={{ title: 'Edit Profile' }} component={ProfileScreen} />

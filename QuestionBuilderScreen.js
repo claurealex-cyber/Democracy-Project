@@ -60,9 +60,12 @@ function QuestionBuilderScreen({ route, navigation }) {
           data={questionIds}
           keyExtractor={(item) => item}
           renderItem={({ item }) => (
-            <View style={styles.questionItem}>
+            <TouchableOpacity
+              style={styles.questionItem}
+              onPress={() => navigation.navigate('AddQuestion', { questionnaireId, questionId: item })}
+            >
               <Text>{item}</Text>
-            </View>
+            </TouchableOpacity>
           )}
         />
         <TouchableOpacity
