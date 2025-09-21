@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, FlatList, SafeAreaView, TouchableOpacity } from 'react-native';
+import { supabase } from './supabase.js';
+
+function QuestionBuilderScreen({ route, navigation }) {
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, SafeAreaView } from 'react-native';
 import { supabase } from './supabase.js';
 
@@ -65,6 +69,12 @@ function QuestionBuilderScreen({ route }) {
             </View>
           )}
         />
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => navigation.navigate('AddQuestion', { questionnaireId })}
+        >
+          <Text style={styles.buttonText}>Add New Question</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -95,6 +105,18 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
+  },
+  button: {
+    backgroundColor: '#2a4d69',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 
