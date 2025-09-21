@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -8,7 +8,9 @@ import {
   StyleSheet,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
+import { supabase } from './supabase.js';
 
 function summarize(profile) {
   const parts = [];
@@ -143,13 +145,37 @@ function stringify(val) {
 }
 
 function QuestionnaireScreen({ route }) {
-  const { nodes } = route.params;
+  const { questionnaireId } = route.params;
+  const [nodes, setNodes] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [currentId, setCurrentId] = useState("start");
   const [profile, setProfile] = useState({});
   const [transcript, setTranscript] = useState([]);
   const [multiSelections, setMultiSelections] = useState({});
 
-  const node = useMemo(() => nodes[currentId], [currentId, nodes]);
+  useEffect(() => {
+    const fetchQuestionnaire = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('questionnaires')
+        .select('nodes')
+        .eq('id', questionnaireId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching questionnaire:', error);
+      } else {
+        setNodes(data.nodes);
+      }
+      setLoading(false);
+    };
+
+    if (questionnaireId) {
+      fetchQuestionnaire();
+    }
+  }, [questionnaireId]);
+
+  const node = useMemo(() => nodes ? nodes[currentId] : null, [currentId, nodes]);
 
   const handleSingleSelect = (opt) => {
     setTranscript((t) => [
@@ -192,6 +218,26 @@ function QuestionnaireScreen({ route }) {
     setTranscript([]);
     setMultiSelections({});
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!node) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={styles.title}>Questionnaire not found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const isEnd = node.type === "end";
   const summary = useMemo(() => (isEnd ? summarize(profile) : ""), [isEnd, profile]);
