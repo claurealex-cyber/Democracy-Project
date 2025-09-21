@@ -20,6 +20,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import QuestionnaireScreen from './QuestionnaireScreen.js';
+import QuestionBuilderScreen from './QuestionBuilderScreen.js';
 import { supabase } from './supabase.js';
 import NODES from './data/gunReformNodes.js';
 
@@ -634,9 +635,8 @@ function CreateQuestionnaireScreen({ navigation }) {
 
     if (error) {
       Alert.alert('Error creating questionnaire', error.message);
-    } else {
-      Alert.alert('Success', 'Questionnaire created. You can now add questions.');
-      navigation.goBack();
+    } else if (data) {
+      navigation.navigate('QuestionBuilder', { questionnaireId: data.id });
     }
   };
 
@@ -1000,6 +1000,7 @@ export default function App() {
               )}
             </Stack.Screen>
             <Stack.Screen name="CreateQuestionnaire" options={{ title: 'Create Questionnaire' }} component={CreateQuestionnaireScreen} />
+            <Stack.Screen name="QuestionBuilder" options={{ title: 'Question Builder' }} component={QuestionBuilderScreen} />
             <Stack.Screen name="Auth" options={{ title: 'Authentication' }} component={AuthScreen} />
             <Stack.Screen name="Account" options={{ title: 'Account' }} component={AccountScreen} />
             <Stack.Screen name="Profile" options={{ title: 'Edit Profile' }} component={ProfileScreen} />
