@@ -2,8 +2,7 @@
 // Cross-partisan civic discussion app with Supabase persistence.
 
 import 'react-native-gesture-handler';
-import 'react-native-screens';
-import React, { useState, useEffect, useContext, createContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext, createContext } from 'react';
 import {
   View,
   Text,
@@ -15,29 +14,22 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Pressable,
-  StatusBar,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import GunReformChatScreen from './GunReformChatScreen.js';
+import QuestionnaireScreen from './QuestionnaireScreen.js';
+
+import NODES from './data/gunReformNodes.js';
 
 // ---------- Supabase client (single-file / Snack style) ----------
 const supabaseUrl = 'https://npkuhbtuhsgxvkkyzwsb.supabase.co';
 const supabaseAnonKey =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wa3VoYnR1aHNneHZra3l6d3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMzUxODUsImV4cCI6MjA3MzkxMTE4NX0.GcAu_WAx23ECALUzEQ_atHcnCNGNL2e6JgsCw3cWFvg';
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ---------- Local cache (offline / restart friendly) ----------
 const ISSUES_CACHE_KEY = 'cgf.issues.v1';
@@ -59,13 +51,6 @@ async function loadIssuesFromCache() {
 
 // ---------- Fallback sample data if server is empty ----------
 const sampleIssues = [
-  {
-    id: 'gun_reform_questionnaire',
-    title: 'Gun Reform Dialogue',
-    description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
-    supporters: 0,
-    comments: [],
-  },
   {
     id: 1,
     title: 'Living Wage and Worker Protections',
@@ -297,7 +282,7 @@ function HomeScreen({ navigation, issues }) {
                 style={styles.issueCard}
                 onPress={() => {
                   if (item.id === 'gun_reform_questionnaire') {
-                    navigation.navigate('GunReformChat');
+                    navigation.navigate('GunReformChat', { nodes: NODES });
                   } else {
                     navigation.navigate('IssueDetail', { issueId: item.id });
                   }
@@ -462,7 +447,6 @@ function IssueDetailScreen({ route, navigation, issues, setIssues, fetchIssues }
       <KeyboardAvoidingView
         style={styles.detailContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={64}
       >
         <ScrollView>
           <Text style={styles.detailTitle}>{issue.title}</Text>
@@ -577,36 +561,28 @@ function NewIssueScreen({ navigation, issues, setIssues, fetchIssues }) {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }} // Use a simple flex style
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={64}
-      >
-        <ScrollView contentContainerStyle={styles.newIssueContainer}>
-          <Text style={styles.sectionTitle}>Propose a New Issue</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Issue title"
-            value={title}
-            onChangeText={setTitle}
-          />
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            placeholder="Describe the issue and why it matters"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-          />
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Submit Issue</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <ScrollView contentContainerStyle={styles.newIssueContainer}>
+        <Text style={styles.sectionTitle}>Propose a New Issue</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Issue title"
+          value={title}
+          onChangeText={setTitle}
+        />
+        <TextInput
+          style={[styles.input, styles.multilineInput]}
+          placeholder="Describe the issue and why it matters"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+        />
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <Text style={styles.submitButtonText}>Submit Issue</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 }
-
-
 
 // ---------- Profile ----------
 function ProfileScreen({ navigation }) {
@@ -754,7 +730,6 @@ function ChatScreen({ route }) {
       <KeyboardAvoidingView
         style={styles.chatContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={64}
       >
         <ScrollView style={styles.chatMessages} contentContainerStyle={{ paddingVertical: 8 }}>
           {messages.map((msg, idx) => {
@@ -816,6 +791,25 @@ const Stack = createStackNavigator();
 export default function App() {
   const [issues, setIssues] = useState([]);
 
+  const GUN_REFORM_ISSUE = {
+    id: 'gun_reform_questionnaire',
+    title: 'Gun Reform Dialogue',
+    description: 'Explore different perspectives on gun reform and find common ground through a guided questionnaire.',
+    supporters: 0,
+    comments: [],
+  };
+
+  const updateAndCacheIssues = async (newIssues) => {
+    const existingIds = new Set(newIssues.map(i => i.id));
+    let finalList = newIssues;
+    if (!existingIds.has(GUN_REFORM_ISSUE.id)) {
+      finalList = [GUN_REFORM_ISSUE, ...newIssues];
+    }
+
+    setIssues(finalList);
+    await saveIssuesToCache(finalList);
+  };
+
   const fetchIssues = async () => {
     try {
       const { data, error } = await supabase
@@ -851,19 +845,18 @@ export default function App() {
       }));
 
       if (hydrated.length) {
-        setIssues(hydrated);
-        await saveIssuesToCache(hydrated);
+        await updateAndCacheIssues(hydrated);
       } else {
         // server has no data: only show samples if we currently have nothing
-        if (issues.length === 0) setIssues(sampleIssues);
+        if (issues.length === 0) await updateAndCacheIssues(sampleIssues);
       }
     } catch (err) {
       console.error('fetchIssues failed:', err);
       const cached = await loadIssuesFromCache();
       if (cached?.length) {
-        setIssues(cached);
+        await updateAndCacheIssues(cached);
       } else if (issues.length === 0) {
-        setIssues(sampleIssues);
+        await updateAndCacheIssues(sampleIssues);
       }
     }
   };
@@ -871,7 +864,9 @@ export default function App() {
   useEffect(() => {
     (async () => {
       const cached = await loadIssuesFromCache();
-      if (cached?.length) setIssues(cached); // quick boot
+      if (cached?.length) {
+        await updateAndCacheIssues(cached); // quick boot
+      }
       await fetchIssues(); // then refresh from server
     })();
   }, []);
@@ -908,7 +903,7 @@ export default function App() {
             <Stack.Screen name="Account" options={{ title: 'Account' }} component={AccountScreen} />
             <Stack.Screen name="Profile" options={{ title: 'Edit Profile' }} component={ProfileScreen} />
             <Stack.Screen name="Chat" options={{ title: 'AI Chat' }} component={ChatScreen} />
-            <Stack.Screen name="GunReformChat" options={{ title: 'Gun Reform Dialogue' }} component={GunReformChatScreen} />
+            <Stack.Screen name="GunReformChat" options={{ title: 'Gun Reform Dialogue' }} component={QuestionnaireScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AuthProvider>
