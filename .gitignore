@@ -1,0 +1,10 @@
+# Dependency directories
+node_modules/
+
+# Expo-specific
+.expo/
+dist/
+
+# Others
+npm-debug.log
+yarn-error.log
