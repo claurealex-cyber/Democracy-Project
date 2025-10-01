@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -599,6 +600,7 @@ function NewIssueScreen({ navigation, issues, setIssues, fetchIssues }) {
 function CreateQuestionnaireScreen({ navigation }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const { user } = useContext(AuthContext);
 
@@ -613,6 +615,8 @@ function CreateQuestionnaireScreen({ navigation }) {
       Alert.alert('You must be logged in to create a questionnaire.');
       return;
     }
+
+    setLoading(true);
 
     const defaultNodes = {
       start: {
@@ -633,6 +637,8 @@ function CreateQuestionnaireScreen({ navigation }) {
       })
       .select()
       .single();
+
+    setLoading(false);
 
     if (error) {
       Alert.alert('Error creating questionnaire', error.message);
@@ -658,8 +664,12 @@ function CreateQuestionnaireScreen({ navigation }) {
           onChangeText={setDescription}
           multiline
         />
-        <TouchableOpacity style={styles.submitButton} onPress={handleSave}>
-          <Text style={styles.submitButtonText}>Save and Add Questions</Text>
+        <TouchableOpacity
+          style={[styles.submitButton, loading && { backgroundColor: '#a9a9a9' }]}
+          onPress={handleSave}
+          disabled={loading}
+        >
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Save and Add Questions</Text>}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
